@@ -10,10 +10,30 @@ from datetime import datetime
 import win32gui
 import win32con
 import win32api
+import ctypes
+
+def is_admin():
+    try:
+        return ctypes.windll.shell32.IsUserAnAdmin()
+    except:
+        return False
+
+def run_as_admin():
+    if not is_admin():
+        # 重新以管理员身份运行程序
+        ctypes.windll.shell32.ShellExecuteW(
+            None, 
+            "runas", 
+            sys.executable, 
+            " ".join(sys.argv), 
+            None, 
+            1
+        )
+        sys.exit()
 
 # 设置pyautogui的安全性，防止鼠标失控
 pyautogui.FAILSAFE = True
-pyautogui.PAUSE = 0.2
+pyautogui.PAUSE = 1.0
 
 class AutoClickerGUI:
     def __init__(self):
@@ -93,7 +113,7 @@ class AutoClickerGUI:
         )
         interval_label.pack(side=tk.LEFT, padx=(0, 5))
         
-        self.interval_var = tk.StringVar(value="1.0")
+        self.interval_var = tk.StringVar(value="0.2")
         vcmd = (self.root.register(self.validate_interval), '%P')
         self.interval_entry = ttk.Entry(
             interval_frame,
@@ -329,5 +349,6 @@ class AutoClickerGUI:
         self.root.mainloop()
 
 if __name__ == "__main__":
+    run_as_admin()  # 检查并提升权限
     app = AutoClickerGUI()
     app.run()
