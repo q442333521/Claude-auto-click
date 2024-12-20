@@ -9,6 +9,7 @@ import threading
 from datetime import datetime
 import win32gui
 import win32con
+import win32api
 
 # 设置pyautogui的安全性，防止鼠标失控
 pyautogui.FAILSAFE = True
@@ -212,65 +213,45 @@ class AutoClickerGUI:
             if not Path(button_image).exists():
                 self.log(f"错误: 找不到图片文件 'allow_button.png'")
                 return False
-            
-            try:
-                # 使用较低的置信度以提高识别速度
-                button_location = pyautogui.locateOnScreen(
-                    button_image,
-                    confidence=0.8,
-                    grayscale=True
-                )
-            except pyautogui.ImageNotFoundException:
-                return False  # 正常未找到图片，不记录错误
-            except Exception as e:
-                self.log(f"图像识别出错: {str(e)}")
-                return False
-            
+
+            button_location = pyautogui.locateOnScreen(button_image, confidence=0.7, grayscale=True)
             if button_location:
-                try:
-                    # 获取按钮中心坐标
-                    x, y = pyautogui.center(button_location)
-                    self.log(f"找到Allow按钮，位置: ({x}, {y})")
-                    
-                    # 保存当前鼠标位置
-                    original_x, original_y = pyautogui.position()
-                    
-                    # 移动到按钮位置
-                    pyautogui.moveTo(x, y, duration=0.2)
-                    
-                    # 确认鼠标已经移动到位
-                    current_x, current_y = pyautogui.position()
-                    if abs(current_x - x) > 5 or abs(current_y - y) > 5:
-                        self.log(f"错误: 鼠标未能移动到正确位置 (目标:{x},{y}, 实际:{current_x},{current_y})")
-                        return False
-                    
-                    # 执行点击
-                    pyautogui.click(x, y)  # 直接在指定位置点击
-                    self.log("点击执行完成")
-                    
-                    # 点击后短暂休眠，避免重复点击
-                    time.sleep(0.5)
-                    
-                    # 恢复鼠标位置
-                    pyautogui.moveTo(original_x, original_y, duration=0.2)
-                    return True
-                    
-                except pyautogui.FailSafeException:
-                    self.log("触发了PyAutoGUI的安全机制，请将鼠标移开屏幕左上角")
-                    return False
-                except Exception as e:
-                    self.log(f"鼠标操作出错: {str(e)}")
-                    return False
-            
-            return False
+                # 获取按钮中心坐标
+                x, y = pyautogui.center(button_location)
+                x, y = int(x), int(y)
+                
+                # 获取当前鼠标位置
+                current_x, current_y = win32api.GetCursorPos()
+                self.log(f"当前鼠标位置: ({current_x}, {current_y})")
+                self.log(f"目标按钮位置: ({x}, {y})")
+                
+                # 移动鼠标
+                win32api.SetCursorPos((x, y))
+                time.sleep(0.1)
+                
+                # 执行鼠标按下
+                win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, x, y, 0, 0)
+                time.sleep(0.1)
+                
+                # 执行鼠标释放
+                win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, x, y, 0, 0)
+                time.sleep(0.1)
+                
+                # 再次点击确保成功
+                win32api.mouse_event(win32con.MOUSEEVENTF_LEFTDOWN, x, y, 0, 0)
+                time.sleep(0.1)
+                win32api.mouse_event(win32con.MOUSEEVENTF_LEFTUP, x, y, 0, 0)
+                
+                self.log(f"完成点击操作")
+                return True
                 
         except Exception as e:
-            self.log(f"点击过程出错: {str(e) if str(e) else e.__class__.__name__}")
-            return False
+            if not isinstance(e, pyautogui.ImageNotFoundException):
+                self.log(f"点击出错: {str(e)}")
+        return False
 
     def clicking_thread(self):
         last_status = ""
-        error_count = 0  # 添加错误计数
         
         while self.running:
             try:
@@ -281,30 +262,23 @@ class AutoClickerGUI:
                 if status != last_status:
                     self.update_status(f"状态: {status}")
                     last_status = status
-                    error_count = 0  # 重置错误计数
                 
                 # 只在窗口完全激活时执行图像识别
                 if is_active:
-                    try:
-                        if self.locate_and_click_button():
-                            error_count = 0  # 成功时重置错误计数
-                            time.sleep(1.0)
-                        else:
-                            time.sleep(self.get_interval())
-                    except Exception as e:
-                        error_count += 1
-                        if error_count >= 3:  # 连续错误超过3次
-                            self.log(f"连续发生{error_count}次错误，暂停5秒")
-                            time.sleep(5)
-                            error_count = 0
+                    if self.locate_and_click_button():
+                        # 点击成功后等待较长时间
+                        time.sleep(1.0)
+                    else:
+                        # 未找到按钮时使用设定的间隔
+                        time.sleep(self.get_interval())
                 else:
-                    error_count = 0  # 窗口未激活时重置错误计数
+                    # 窗口未激活时使用较长的休眠时间
                     time.sleep(0.5)
                     
             except Exception as e:
-                self.log(f"主循环错误: {str(e)}")
+                self.log(f"发生错误: {str(e)}")
                 time.sleep(1)
-                
+
     def validate_interval(self, value):
         if value == "":
             return True
