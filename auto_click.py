@@ -13,7 +13,7 @@ import win32api
 
 # 设置pyautogui的安全性，防止鼠标失控
 pyautogui.FAILSAFE = True
-pyautogui.PAUSE = 1.0
+pyautogui.PAUSE = 0.2
 
 class AutoClickerGUI:
     def __init__(self):
@@ -267,7 +267,7 @@ class AutoClickerGUI:
                 if is_active:
                     if self.locate_and_click_button():
                         # 点击成功后等待较长时间
-                        time.sleep(1.0)
+                        time.sleep(0.5)
                     else:
                         # 未找到按钮时使用设定的间隔
                         time.sleep(self.get_interval())
