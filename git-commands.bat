@@ -6,7 +6,7 @@ git config --global user.name "wzy"
 REM 添加所有修改的文件
 git add .
 
-REM 提交更改
+REM 提交更改1
 git commit -m "改用PyAutoGUI进行图像识别，提高匹配成功率"
 
 REM 如果需要，可以设置/更新远程仓库
